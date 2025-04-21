@@ -420,7 +420,7 @@ if __name__ == '__main__':
     print("\nTesting with enhancement sequences (VIBRANT+C1 to VIBRANT+C8)")
     dataset_enhancement = DriveDataset(
         root='/home/wxf/project/Dataset/BreaDM', 
-        train=True, 
+        mode='train', 
         transforms=transform,
         sequence_types=[f"VIBRANT+C{i}" for i in range(1, 9)]
     )
@@ -428,7 +428,7 @@ if __name__ == '__main__':
     print("\nTesting with subtraction sequences (SUB1 to SUB8)")
     dataset_subtraction = DriveDataset(
         root='/home/wxf/project/Dataset/BreaDM', 
-        train=True, 
+        mode='train', 
         transforms=transform,
         sequence_types=[f"SUB{i}" for i in range(1, 9)]
     )
@@ -437,7 +437,7 @@ if __name__ == '__main__':
     print("\nTesting with default parameters (should use VIBRANT+C1 to VIBRANT+C8)")
     dataset_default = DriveDataset(
         root='/home/wxf/project/Dataset/BreaDM', 
-        train=True, 
+        mode='train',  
         transforms=transform
     )
     
@@ -445,7 +445,7 @@ if __name__ == '__main__':
     print("\nTesting with default subtraction sequences")
     dataset_default_sub = DriveDataset(
         root='/home/wxf/project/Dataset/BreaDM', 
-        train=True, 
+        mode='train', 
         transforms=transform,
         use_subtraction=True
     )
@@ -469,7 +469,8 @@ if __name__ == '__main__':
         print(f"\nSelected dataset size: {len(test_dataset)}")
         sample_count = 0
         max_samples = 10
-        output_dir = '/home/wxf/project/Segmentation_task/STF-Unet/test'
+        output_dir = '/home/wxf/project/Segmentation_task/STF-Unet/output/dataset_test'
+        os.makedirs(output_dir, exist_ok=True)  # 递归创建目录，exist_ok=True 避免目录已存在时报错
         # 获取一个批次并打印形状
         try:
             for sequences, masks in dataloader:

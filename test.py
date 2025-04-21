@@ -94,9 +94,9 @@ def save_comparison(pred_mask, gt_mask, raw_input, save_dir, base_name="sample",
     canvas.save(os.path.join(save_dir, f"{base_name}_{idx_str}_compare.png"))
 
     # 可选：分图保存
-    img.save(os.path.join(save_dir, f"{base_name}_{idx_str}_img.png"))
-    gt_img.save(os.path.join(save_dir, f"{base_name}_{idx_str}_gt.png"))
-    pred_img.save(os.path.join(save_dir, f"{base_name}_{idx_str}_pred.png"))
+    # img.save(os.path.join(save_dir, f"{base_name}_{idx_str}_img.png"))
+    # gt_img.save(os.path.join(save_dir, f"{base_name}_{idx_str}_gt.png"))
+    # pred_img.save(os.path.join(save_dir, f"{base_name}_{idx_str}_pred.png"))
 
 
 def test(args):

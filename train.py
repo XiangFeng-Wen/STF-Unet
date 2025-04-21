@@ -8,10 +8,10 @@ from torch.utils.data import DataLoader
 from torch import nn
 from torch.cuda.amp import autocast, GradScaler
 from PIL import Image
-from test import test
 from src import STFLSTMUNet
-from train_utils import train_one_epoch, evaluate, create_lr_scheduler, preprocess_input
+from train_utils import compute_metrics, EarlyStopping, train_one_epoch, evaluate, create_lr_scheduler, preprocess_input
 import transforms as T
+
 
 # 预处理类，在训练时的数据增强包括随机缩放、水平翻转、垂直翻转、随机裁剪，然后转为Tensor和标准化
 class SegmentationPresetTrain:
@@ -113,7 +113,8 @@ def parse_args():
     parser.add_argument('--use-pk-maps', action='store_true', help='use PK parameter maps')
     parser.add_argument('--generate-pk-maps', action='store_true', help='generate PK parameter maps before training')
     parser.add_argument('--use-subtraction', action='store_true', help='use subtraction images instead of enhanced images')
-    
+    parser.add_argument('--test-only', action='store_true', help='仅进行模型测试，不训练')
+
     return parser.parse_args()
 
 
@@ -146,7 +147,8 @@ def main(args):
     # 用来保存训练以及验证过程中信息
     results_file = None
     if not args.silent:
-        results_file = "./output/stf_lstm_unet_results_{}.txt".format(
+        results_file = "./output/{}_results_{}.txt".format(
+            args.model,
             datetime.datetime.now().strftime("%m%d-%H%M")
         )
         # 创建输出目录
@@ -158,6 +160,8 @@ def main(args):
         from pk_fitting import generate_pk_maps_for_dataset
         generate_pk_maps_for_dataset(args.data_path)
         print("PK parameter maps generation completed")
+
+    early_stopper = EarlyStopping(patience=20, verbose=True)
 
     # 导入数据集类 - 使用我们为BreaDM数据集创建的自定义DriveDataset
     from my_dataset import DriveDataset
@@ -253,6 +257,8 @@ def main(args):
     best_dice = 0.0
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
+        if args.test_only:
+            break
         # 调用train_one_epoch函数
         mean_loss, lr = train_one_epoch(model, optimizer, train_loader, device, epoch, num_classes,
                                         lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
@@ -317,6 +323,11 @@ def main(args):
             epoch_path = os.path.join(save_dir, f"{model_name}_epoch{epoch}.pth")
             torch.save(save_file, epoch_path)
 
+        # ✅ 检查早停
+        if early_stopper.step(dice):
+            print(f"Early stopping at epoch {epoch+1}")
+            break
+
     # 计算总训练时间
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -358,6 +369,7 @@ def main(args):
         for idx, (inputs, targets) in enumerate(test_loader):
             inputs = preprocess_input(inputs, model)
             inputs = inputs.to(device)
+            targets = targets.to(device)
             outputs = model(inputs)
             if isinstance(outputs, dict):
                 outputs = outputs["out"]
@@ -365,10 +377,13 @@ def main(args):
             preds = (probs > 0.5).float()
 
             # 保存预测图像
-            pred = preds[0][0]
+            pred = 1 - preds[0][0]
             raw = inputs[0][0] if inputs.ndim == 5 else inputs[0]  # 支持 T×C 和 T×C 展开后的格式
             target = targets[0] if targets is not None else None
-            save_comparison(pred, target, raw, test_save_dir, base_name=model_name, idx=idx)
+            dice_val, iou_val = compute_metrics(pred, target) if target is not None else (None, None)
+            
+            save_comparison(pred, target, raw, test_save_dir, base_name=model_name, idx=idx,
+                            dice_score=dice_val, iou_score=iou_val)
     
     # 如果有GT，计算评估指标
     print("Evaluating predictions on test set...")
