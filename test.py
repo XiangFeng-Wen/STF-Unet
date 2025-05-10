@@ -11,6 +11,8 @@ import numpy as np
 from datetime import datetime
 from train_utils import preprocess_input, evaluate
 import transforms as T
+from train_utils import merge_images
+import cv2
 
 def get_transform(mean=(0.709), std=(0.127)):
     crop_size = 224
@@ -46,6 +48,39 @@ def save_predictions(pred_mask, raw_input, save_dir, base_name="sample", idx=0):
 
     raw_img.save(os.path.join(save_dir, f"{base_name}_{idx_str}_img.png"))
     pred_img.save(os.path.join(save_dir, f"{base_name}_{idx_str}_pred.png"))
+
+def save_overlay_from_tensor(pred_mask, raw_input, save_dir, patient_id, overlay_color=(0, 255, 0), alpha=0.5):
+    """
+    将预测掩膜以彩色透明形式叠加在原始图上，并保存
+
+    参数:
+        pred_mask: Tensor[H, W]，值为0或1
+        raw_input: Tensor[C, H, W] 或 Tensor[H, W]，原始图像
+        save_dir: 输出目录
+        patient_id: 图像ID（如"001"）
+        overlay_color: 叠加颜色（默认绿色）
+        alpha: 掩膜透明度（默认0.5）
+    """
+    os.makedirs(save_dir, exist_ok=True)
+
+    # 原图转numpy（灰度）
+    if raw_input.ndim == 3:
+        raw_np = raw_input[0].cpu().numpy()
+    else:
+        raw_np = raw_input.cpu().numpy()
+    raw_np = ((raw_np - raw_np.min()) / (raw_np.max() - raw_np.min() + 1e-8) * 255).astype(np.uint8)
+    raw_img = cv2.cvtColor(raw_np, cv2.COLOR_GRAY2BGR)
+
+    # 掩膜转numpy
+    mask_np = (pred_mask.cpu().numpy() > 0.5).astype(np.uint8) * 255
+    mask_np = 255 - mask_np
+
+    # 合成图像
+    merged = merge_images(raw_img, mask_np, overlay_color, alpha=alpha)
+
+    # 保存
+    cv2.imwrite(os.path.join(save_dir, f"unet_{patient_id}.png"), merged)
+
 
 def save_comparison(pred_mask, gt_mask, raw_input, save_dir, base_name="sample", idx=0):
     """
@@ -138,7 +173,7 @@ def test(args):
             raw = inputs[0][0] if inputs.ndim == 5 else inputs[0]  # 支持 T×C 和 T×C 展开后的格式
             target = targets[0] if targets is not None else None
             #save_predictions(preds[0][0].cpu(), inputs[0], args.output_dir, base_name=args.model, idx=idx)
-            save_comparison(pred, target, raw, args.output_dir, base_name=args.model, idx=idx)
+            save_overlay_from_tensor(pred, raw, args.output_dir, idx)
 
     # 如果有GT，计算评估指标
     test_metrics = evaluate(model, test_loader, device=device, num_classes=2)

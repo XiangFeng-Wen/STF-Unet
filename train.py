@@ -84,7 +84,10 @@ def create_model(model_type, num_classes, in_channels=1, use_pk_maps=False, time
         )
     elif model_type == 'unet':
         from src import UNet
-        return UNet(in_channels=8, num_classes=num_classes)
+        if (use_pk_maps == True) :
+            return UNet(in_channels=8+3, num_classes=num_classes)
+        else:
+            return UNet(in_channels=8, num_classes=num_classes)
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 
@@ -144,12 +147,16 @@ def main(args):
     mean = (0.709)
     std = (0.127)
 
+    # 根据是否使用PK参数图，设置路径标识
+    tag_suffix = "_pk" if args.use_pk_maps else ""
+
     # 用来保存训练以及验证过程中信息
     results_file = None
     if not args.silent:
-        results_file = "./output/{}_results_{}.txt".format(
+        results_file = "./output/{}_results_{}{}.txt".format(
             args.model,
-            datetime.datetime.now().strftime("%m%d-%H%M")
+            datetime.datetime.now().strftime("%m%d-%H%M"),
+            tag_suffix
         )
         # 创建输出目录
         os.makedirs("./output", exist_ok=True)
@@ -204,9 +211,7 @@ def main(args):
                             collate_fn=val_dataset.collate_fn)
 
     # 确定输入通道数
-    in_channels = 1  # 基础通道数，不需要增加PK特征图通道数
-    # PK特征图已经作为额外的时间步附加到输入序列的末尾
-    # 不需要在这里增加输入通道数
+    in_channels = 1
     
     # 创建模型实例
     model = create_model(
@@ -309,18 +314,18 @@ def main(args):
 
         if args.save_best:
             # 每轮保存 latest
-            latest_path = os.path.join(save_dir, f"{model_name}_latest_model.pth")
+            latest_path = os.path.join(save_dir, f"{model_name}_latest_model{tag_suffix}.pth")
             torch.save(save_file, latest_path)
 
             # 保存最优模型
             if best_dice < dice:
-                best_path = os.path.join(save_dir, f"{model_name}_best_model.pth")
+                best_path = os.path.join(save_dir, f"{model_name}_best_model{tag_suffix}.pth")
                 torch.save(save_file, best_path)
                 best_dice = dice
                 print(f"✅ New best model saved at epoch {epoch}, Dice = {dice:.4f}")
         else:
             # 每轮保存
-            epoch_path = os.path.join(save_dir, f"{model_name}_epoch{epoch}.pth")
+            epoch_path = os.path.join(save_dir, f"{model_name}_epoch{epoch}{tag_suffix}.pth")
             torch.save(save_file, epoch_path)
 
         # ✅ 检查早停
@@ -362,7 +367,7 @@ def main(args):
     from train_utils.visualize import save_comparison  # 如果你已有保存工具
     print("Running inference on test set...")
 
-    test_save_dir = "./output/test_results"
+    test_save_dir = "./output/test_results{tag_suffix}"
     os.makedirs(test_save_dir, exist_ok=True)
 
     with torch.no_grad():

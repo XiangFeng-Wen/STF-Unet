@@ -9,6 +9,9 @@
 *.jpeg
 *.gif
 
+#忽略测试文件
+*.sh
+
 # 忽略文档文件
 *.pdf
 *.doc
@@ -39,7 +42,7 @@ save_weights/
 config.yml
 
 # 忽略Python虚拟环境
-stf_env/
+stf-env/
 
 # 忽略系统文件
 .DS_Store

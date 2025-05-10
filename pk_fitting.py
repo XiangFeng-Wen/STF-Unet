@@ -404,12 +404,12 @@ class ToftsModelFitter:
                 cv2.imwrite(output_file, norm_map)
                 
                 # 创建热图可视化 - 使用不同的颜色映射
-                plt.figure(figsize=(8, 6))
-                plt.imshow(param_map, cmap=param_cmaps[i])
-                plt.colorbar(label=name)
-                plt.title(f'{name.upper()} Parameter Map')
-                plt.savefig(os.path.join(output_dir, f'{name}_heatmap.png'))
-                plt.close()
+                # plt.figure(figsize=(8, 6))
+                # plt.imshow(param_map, cmap=param_cmaps[i])
+                # plt.colorbar(label=name)
+                # plt.title(f'{name.upper()} Parameter Map')
+                # plt.savefig(os.path.join(output_dir, f'{name}_heatmap.png'))
+                # plt.close()
                 
                 # 保存原始参数值
                 np.save(os.path.join(output_dir, f'{name}_raw.npy'), param_map)
